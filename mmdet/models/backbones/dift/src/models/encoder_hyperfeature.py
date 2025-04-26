@@ -54,8 +54,8 @@ class HyperFeatureEncoder(nn.Module):
             self.change_batchsize(b)
 
         with torch.no_grad():
-            feats, _ = self.diffusion_extractor.forward(img_tensor, stride_mode=True)
-
+            feats, _ = self.diffusion_extractor.forward(img_tensor, stride_mode=True) #实际上并不需要去噪后的特征
+        #feat[0]代表upblock 中每一个resnet中的三层特征，每一层特征具有五个时间步的concat
         if self.mode == "float":
             stride_hf = self.aggregation_network([feats[0].view((b, -1, h // 64, w // 64)).to(dtype=torch.float),
                                                   feats[1].view((b, -1, h // 32, w // 32)).to(dtype=torch.float),

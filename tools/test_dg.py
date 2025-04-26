@@ -71,9 +71,9 @@ def main():
         config_list = [
             # 'DG/_base_/datasets/domain_generalization/test_dwd_daytime_sunny.py',
             'DG/_base_/datasets/domain_generalization/test_dwd_daytime_foggy.py',
-            'DG/_base_/datasets/domain_generalization/test_dwd_dusk_rainy.py',
-            'DG/_base_/datasets/domain_generalization/test_dwd_night_rainy.py',
-            'DG/_base_/datasets/domain_generalization/test_dwd_night_sunny.py'
+            # 'DG/_base_/datasets/domain_generalization/test_dwd_dusk_rainy.py',
+            # 'DG/_base_/datasets/domain_generalization/test_dwd_night_rainy.py',
+            # 'DG/_base_/datasets/domain_generalization/test_dwd_night_sunny.py'
         ]
     elif 'city' in args.config:
         config_list = [
@@ -92,8 +92,8 @@ def main():
         config_list = [
             # 'DG/_base_/datasets/domain_generalization/test_voc.py',
             'DG/_base_/datasets/domain_generalization/test_clipart.py',
-            'DG/_base_/datasets/domain_generalization/test_comic.py',
-            'DG/_base_/datasets/domain_generalization/test_watercolor.py'
+            # 'DG/_base_/datasets/domain_generalization/test_comic.py',
+            # 'DG/_base_/datasets/domain_generalization/test_watercolor.py'
         ]
 
     for test_config in config_list:
@@ -108,7 +108,7 @@ def main():
         test_cfg = Config.fromfile(test_config)
 
         cfg.test_evaluator = test_cfg.test_evaluator
-        cfg.test_evaluator.format_only = True
+        cfg.test_evaluator.format_only = False
 
         cfg.test_dataloader = test_cfg.test_dataloader
         cfg.val_evaluator = test_cfg.val_evaluator

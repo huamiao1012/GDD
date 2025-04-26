@@ -14,8 +14,9 @@ detector.data_preprocessor = dict(
 
 detector.detector.roi_head.bbox_head.num_classes = 7
 detector.dift_model.config = 'DG/Ours/dwd/diffusion_detector_dwd_source.py'
-detector.dift_model.pretrained_model = '.pth'
-
+detector.dift_model.pretrained_model = 'work_dirs/diffusion_detector_dwd_source/iter_20000.pth'
+# detector.dift_model.config = None
+# detector.dift_model.pretrained_model = None
 
 model = dict(
     _delete_=True,

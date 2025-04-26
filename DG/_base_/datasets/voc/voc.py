@@ -62,7 +62,7 @@ test_pipeline = [
 ]
 
 train_dataloader = dict(
-    batch_size=8,
+    batch_size=2,
     num_workers=8,
     persistent_workers=True,
     sampler=dict(type='DefaultSampler', shuffle=True),
@@ -86,7 +86,7 @@ val_dataloader = dict(
         type=dataset_type,
         data_root=data_root,
         metainfo=dict(classes=classes),
-        ann_file='VOC/VOC0712/test.json',
+        ann_file='VOC/VOC0712/train.json',
         data_prefix=dict(img='VOC/VOC0712/JPEGImages/'),
         test_mode=True,
         filter_cfg=dict(filter_empty_gt=True),
@@ -95,7 +95,7 @@ test_dataloader = val_dataloader
 
 val_evaluator = dict(
     type='CocoMetric',
-    ann_file=data_root + 'VOC/VOC0712/test.json',
+    ann_file=data_root + 'VOC/VOC0712/train.json',
     metric='bbox',
     format_only=False)
 test_evaluator = val_evaluator

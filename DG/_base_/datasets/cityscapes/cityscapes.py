@@ -29,7 +29,7 @@ train_pipeline = [
     dict(type='RandAugment', aug_space=color_space, aug_num=1),
     dict(type='RandomErasing', n_patches=(1, 5), ratio=(0, 0.2)),
     dict(type='AlbuDomainAdaption', domain_adaption_type='ALL',
-         target_dir='data/cityscapes/JPEGImages', p=0.5),
+         target_dir='data/cityscapes/leftImg8bit', p=0.5),
     dict(type='PackDetInputs',
         meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
                    'scale_factor', 'flip', 'flip_direction',
@@ -56,7 +56,7 @@ train_dataloader = dict(
         data_root=data_root,
         metainfo=dict(classes=classes),
         ann_file='cityscapes/train.json',
-        data_prefix=dict(img='cityscapes/JPEGImages/'),
+        data_prefix=dict(img='cityscapes/leftImg8bit/'),
         filter_cfg=dict(filter_empty_gt=True),
         pipeline=train_pipeline))
 val_dataloader = dict(
@@ -70,7 +70,7 @@ val_dataloader = dict(
         data_root=data_root,
         metainfo=dict(classes=classes),
         ann_file='cityscapes/test.json',
-        data_prefix=dict(img='cityscapes/JPEGImages/'),
+        data_prefix=dict(img='cityscapes/leftImg8bit/'),
         test_mode=True,
         filter_cfg=dict(filter_empty_gt=True),
         pipeline=test_pipeline))

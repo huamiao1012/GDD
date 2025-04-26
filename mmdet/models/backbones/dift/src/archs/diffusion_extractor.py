@@ -46,7 +46,7 @@ class DiffusionExtractor(nn.Module):
         self.set_cond(self.prompt, self.negative_prompt)
         del self.clip, self.clip_tokenizer
 
-        self.diffusion_mode = config.get("diffusion_mode", "generation")
+        self.diffusion_mode = config.get("diffusion_mode", "generation") #'inversion'
         if "idxs" in config and config["idxs"] is not None:
             self.idxs = config["idxs"]
         else:
@@ -56,7 +56,7 @@ class DiffusionExtractor(nn.Module):
         # Note that save_timestep is in terms of number of generation steps
         # save_timestep = 0 is noise, save_timestep = T is a clean image
         # generation saves as [0...T], inversion saves as [T...0]
-        self.save_timestep = config.get("save_timestep", [])
+        self.save_timestep = config.get("save_timestep", []) # [4, 3, 2, 1, 0]
 
         if config.get("scheduler_timesteps", None):
             self.scheduler.timesteps = torch.Tensor(config["scheduler_timesteps"])

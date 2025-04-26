@@ -30,7 +30,7 @@ load_from = None
 resume = False
 
 burn_up_iters = 0
-train_cfg = dict(type='IterBasedTrainLoop', max_iters=20000, val_interval=2000)
+train_cfg = dict(type='IterBasedTrainLoop', max_iters=100000, val_interval=2000)
 val_cfg = dict(type='TeacherStudentValLoop')
 test_cfg = dict(type='TestLoop')
 param_scheduler = [

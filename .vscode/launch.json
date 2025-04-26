@@ -1,0 +1,28 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    // "args": ["--config", "configs/faster_rcnn_R101_cross_clipart_b4_relation_cls_aware_vscode.yaml", "--resume","MODEL.WEIGHTS","output/exp_clipart/relation_cls_aware/model_0009999.pth"
+    //vis:  "args":["--config-file", "configs/faster_rcnn_R101_cross_clipart_b4.yaml", "--input", "detection/example/000845.jpg", "--opts", "MODEL.WEIGHTS",
+    //"output/exp_clipart/oringin/model_0004999.pth",  "MODEL.DEVICE", "cpu"]
+    "version": "0.2.0",
+    "configurations": [
+    
+            
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "tools/train.py",
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "4",
+                "PYTHONPATH":"${workspaceFolder}"
+            },
+            "console": "integratedTerminal",
+            "envFile": "${workspaceRoot}/.env",
+            "justMyCode": false,
+            "args": ["DG/Ours/voc/diffusion_guided_detector_voc.py"]
+               
+        }
+    ]
+}

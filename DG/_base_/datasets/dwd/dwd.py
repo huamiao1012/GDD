@@ -78,8 +78,8 @@ val_dataloader = dict(
         type=dataset_type,
         data_root=data_root,
         metainfo=dict(classes=classes),
-        ann_file='DWD/Daytime_Sunny/test.json',
-        data_prefix=dict(img='DWD/Daytime_Sunny/JPEGImages/'),
+        ann_file='DWD/Daytime_Foggy/all.json',
+        data_prefix=dict(img='DWD/Daytime_Foggy/JPEGImages/'),
         test_mode=True,
         filter_cfg=dict(filter_empty_gt=True),
         pipeline=test_pipeline))
@@ -87,7 +87,7 @@ test_dataloader = val_dataloader
 
 val_evaluator = dict(
     type='CocoMetric',
-    ann_file=data_root + 'DWD/Daytime_Sunny/test.json',
+    ann_file=data_root + 'DWD/Daytime_Foggy/all.json',
     metric='bbox',
     format_only=False)
 test_evaluator = val_evaluator

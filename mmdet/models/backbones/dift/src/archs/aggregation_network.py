@@ -30,7 +30,9 @@ class StrideAggregationNetwork(nn.Module):
         self.save_timestep = save_timestep
 
         # Count features for each stride, stride id [0, 1, 2]
-        self.num_stride = len(projection_dim)
+        self.num_stride = len(projection_dim) 
+        #self.idxs = [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (2, 0), (2, 1), (2, 2), (3, 0), (3, 1), (3, 2)] 
+        #(stride_idx, block_idx) stride_idx：特征所属的层级（如 1、2、3 对应不同分辨率）。block_idx：该层级内的块索引（如残差块的序号）。
         self.feature_cnts = [0 for _ in range(self.num_stride)]
         self.feature_stride_idx = []
         self.feature_instride_num = []
