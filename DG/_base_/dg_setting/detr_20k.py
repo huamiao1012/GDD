@@ -29,11 +29,27 @@ log_processor = dict(type='LogProcessor', window_size=50, by_epoch=False)
 log_level = 'INFO'
 # load_from = None
 resume = False
+launcher = 'none'
+auto_scale_lr = dict(enable=True, base_batch_size=32)
+ 
+optim_wrapper = dict(
+    type='OptimWrapper',
+    optimizer=dict(type='AdamW', lr=0.002, weight_decay=0.0001),
+    clip_grad=dict(max_norm=0.1, norm_type=2),
+    paramwise_cfg=dict(
+        custom_keys={
+            'backbone': dict(lr_mult=0.1),
+            'sampling_offsets': dict(lr_mult=0.1),
+            'reference_points': dict(lr_mult=0.1)
+        }))
+
+# learning policy
+max_epochs = 50
 train_cfg = dict(type='IterBasedTrainLoop', max_iters=100000, val_interval=2000)
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
+
 param_scheduler = [
-    dict(type='LinearLR', start_factor=0.001, by_epoch=False, begin=0, end=500),
     dict(
         type='MultiStepLR',
         begin=0,
@@ -42,9 +58,4 @@ param_scheduler = [
         milestones=[18000],
         gamma=0.1)
 ]
-optim_wrapper = dict(
-    type='OptimWrapper',
-    optimizer=dict(type='SGD', lr=0.02, momentum=0.9, weight_decay=0.0001))
-launcher = 'none'
-auto_scale_lr = dict(enable=True, base_batch_size=16)
-find_unused_parameters = True
+ 

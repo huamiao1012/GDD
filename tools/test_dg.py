@@ -8,7 +8,7 @@ from copy import deepcopy
 from mmengine import ConfigDict
 from mmengine.config import Config, DictAction
 from mmengine.runner import Runner
-
+from mmdet.hooks import LoadBackboneHook
 from mmdet.engine.hooks.utils import trigger_visualization_hook
 from mmdet.evaluation import DumpDetResults
 from mmdet.registry import RUNNERS
@@ -21,6 +21,7 @@ def parse_args():
         description='MMDet test (and eval) a model')
     parser.add_argument('config', help='--test config file path')
     parser.add_argument('checkpoint', help='--checkpoint file')
+    parser.add_argument("--backbone", help="backbone checkpoint file", default="")
     parser.add_argument(
         '--work-dir',
         help='the directory to save the file containing evaluation metrics')
@@ -90,7 +91,7 @@ def main():
         ]
     elif 'voc' in args.config:
         config_list = [
-            # 'DG/_base_/datasets/domain_generalization/test_voc.py',
+            #'DG/_base_/datasets/domain_generalization/test_voc.py',
             'DG/_base_/datasets/domain_generalization/test_clipart.py',
             # 'DG/_base_/datasets/domain_generalization/test_comic.py',
             # 'DG/_base_/datasets/domain_generalization/test_watercolor.py'
@@ -130,6 +131,12 @@ def main():
         cfg.test_evaluator.outfile_prefix = os.path.join(
             cfg.work_dir, test_config.split('/')[-1])
         cfg.load_from = args.checkpoint
+        if args.backbone:
+            custom_hooks = getattr(cfg, "custom_hooks", [])
+            custom_hooks.append(
+                dict(type="LoadBackboneHook", checkpoint_path=args.backbone)
+            )
+            setattr(cfg, "custom_hooks", custom_hooks)
 
         if args.show or args.show_dir:
             cfg = trigger_visualization_hook(cfg, args)

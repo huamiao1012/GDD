@@ -25,7 +25,8 @@ from .transforms import (Albu, CachedMixUp, CachedMosaic, CopyPaste, CutOut,
 from .wrappers import MultiBranch, ProposalBroadcaster, RandomOrder
 from .albu_domain_adaption import AlbuDomainAdaption
 from .at_transforms import at_weak_augmentation, at_strong_augmentation
-
+from .acvc import ACVCCorruptionTransform
+from .generate_mask import GenerateMaskFromBbox
 __all__ = [
     'PackDetInputs', 'ToTensor', 'ImageToTensor', 'Transpose',
     'LoadImageFromNDArray', 'LoadAnnotations', 'LoadPanopticAnnotations',
@@ -44,5 +45,5 @@ __all__ = [
     'PackTrackInputs', 'PackReIDInputs', 'FixScaleResize',
     'ResizeShortestEdge', 'GTBoxSubOne_GLIP', 'RandomFlip_GLIP',
     'RandomSamplingNegPos', 'LoadTextAnnotations', 'AlbuDomainAdaption',
-    'at_strong_augmentation', 'at_weak_augmentation'
+    'at_strong_augmentation', 'at_weak_augmentation','ACVCCorruptionTransform', 'GenerateMaskFromBbox',
 ]

@@ -21,7 +21,7 @@
             "console": "integratedTerminal",
             "envFile": "${workspaceRoot}/.env",
             "justMyCode": false,
-            "args": ["DG/Ours/voc/diffusion_guided_detector_voc.py"]
+            "args": ["DG/Ours/dwd/deformable_detr_dwd_source.py"]
                
         }
     ]

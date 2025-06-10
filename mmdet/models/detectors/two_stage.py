@@ -158,6 +158,13 @@ class TwoStageDetector(BaseDetector):
         Returns:
             dict: A dictionary of loss components
         """
+        #gt_mask_bbox = None
+        # if batch_data_samples[0].get('gt_mask_bbox') is not None:
+        #     gt_mask_bboxes = []
+        #     for i, data_sample in enumerate(batch_data_samples):
+        #         gt_mask_bboxes.append(torch.from_numpy(data_sample.gt_mask_bbox))
+        #     gt_mask_bbox = torch.cat(gt_mask_bboxes, dim =0)
+            
         x = self.extract_feat(batch_inputs)
 
         losses = dict()

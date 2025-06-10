@@ -42,13 +42,15 @@ train_pipeline = [
     dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-2, 1e-2)),
     dict(type='RandomFlip', prob=0.5),
     dict(type='RandAugment', aug_space=color_space, aug_num=1),
+    dict(type='ACVCCorruptionTransform'),
     dict(type='AlbuDomainAdaption', domain_adaption_type='ALL',
          target_dir='data/VOC/VOC0712/JPEGImages', p=0.5),
+    dict(type='GenerateMaskFromBbox', img_size= (512, 512)),
     dict(
         type='PackDetInputs',
         meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
                    'scale_factor', 'flip', 'flip_direction',
-                   'homography_matrix')),
+                   'homography_matrix','gt_mask_bbox')),
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile', backend_args=backend_args),
@@ -62,7 +64,7 @@ test_pipeline = [
 ]
 
 train_dataloader = dict(
-    batch_size=2,
+    batch_size=8,
     num_workers=8,
     persistent_workers=True,
     sampler=dict(type='DefaultSampler', shuffle=True),
@@ -86,8 +88,8 @@ val_dataloader = dict(
         type=dataset_type,
         data_root=data_root,
         metainfo=dict(classes=classes),
-        ann_file='VOC/VOC0712/train.json',
-        data_prefix=dict(img='VOC/VOC0712/JPEGImages/'),
+        ann_file='clipart/test.json',
+        data_prefix=dict(img='clipart/JPEGImages/'),
         test_mode=True,
         filter_cfg=dict(filter_empty_gt=True),
         pipeline=test_pipeline))
@@ -95,7 +97,7 @@ test_dataloader = val_dataloader
 
 val_evaluator = dict(
     type='CocoMetric',
-    ann_file=data_root + 'VOC/VOC0712/train.json',
+    ann_file=data_root + 'clipart/test.json',
     metric='bbox',
     format_only=False)
 test_evaluator = val_evaluator
