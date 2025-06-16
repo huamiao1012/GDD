@@ -25,7 +25,6 @@ from .dino_layers import (
     NestedTensorBlock as Block,
 )
 
-
 def named_apply(
     fn: Callable, module: nn.Module, name="", depth_first=True, include_root=False
 ) -> nn.Module:
