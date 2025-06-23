@@ -5,4 +5,4 @@ __pycache__/
 data/
 data
 .dist_test
-checkpoint
+checkpoints
