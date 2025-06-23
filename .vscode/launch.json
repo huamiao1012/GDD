@@ -21,7 +21,7 @@
             "console": "integratedTerminal",
             "envFile": "${workspaceRoot}/.env",
             "justMyCode": false,
-            "args": ["DG/Ours/dwd/deformable_detr_dwd_source.py"]
+            "args": ["DG/Ours/voc/dino_detector_voc_source.py"]
                
         }
     ]

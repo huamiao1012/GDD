@@ -62,6 +62,12 @@ class TwoStageDetector(BaseDetector):
 
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
+        for name, param in self.backbone.named_parameters():
+            if any(key in name for key in ['blocks_MoA', 'confuse_layer', ]): 
+                param.requires_grad = True
+                print(name)
+            else:
+                param.requires_grad = False
 
     def _load_from_state_dict(self, state_dict: dict, prefix: str,
                               local_metadata: dict, strict: bool,
@@ -165,7 +171,7 @@ class TwoStageDetector(BaseDetector):
         #         gt_mask_bboxes.append(torch.from_numpy(data_sample.gt_mask_bbox))
         #     gt_mask_bbox = torch.cat(gt_mask_bboxes, dim =0)
             
-        x = self.extract_feat(batch_inputs)
+        x, aux_loss = self.extract_feat(batch_inputs)
 
         losses = dict()
 

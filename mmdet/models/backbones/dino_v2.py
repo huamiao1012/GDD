@@ -24,6 +24,7 @@ from .dino_layers import (
     MemEffAttention,
     NestedTensorBlock as Block,
 )
+from .clip.models import CLIPVisionTransformer, BiMixtureOfAdapters, ConvFusionLayer
 
 def named_apply(
     fn: Callable, module: nn.Module, name="", depth_first=True, include_root=False
@@ -177,6 +178,50 @@ class DinoVisionTransformer(BaseModule):
         self.head = nn.Identity()
 
         self.mask_token = nn.Parameter(torch.zeros(1, embed_dim))
+        ######### clip config ###########
+        self.clip = CLIPVisionTransformer(
+                patch_size=16,
+                width=1024,
+                output_dim=768,
+                get_embeddings=True,
+                drop_path_rate=0.1,
+                layers=24,
+                input_resolution=512,
+                style='pytorch',
+                out_indices=[7, 11, 15, 23],
+                heads=16,
+                pretrained ='checkpoints/ViT-L-14-336px.pt',
+                ignore_last_attn=False 
+            )
+        self.clip.init_weights()
+        self.task_num = 2
+        self.blocks_MoA = nn.ModuleList([
+            BiMixtureOfAdapters(embed_dim,32,self.task_num)
+            for i in range(depth)])
+        self.confuse_layer = nn.ModuleList([
+            ConvFusionLayer(embed_dim,32)
+            for i in range(depth)])
+        # import open_clip
+        # clip_model, _, _ = open_clip.create_model_and_transforms(
+        #     'ViT-L-16', pretrained='openai')
+
+        # # 获取 vision tower 部分
+        # vision_state_dict = {
+        #     k.replace("visual.", ""): v for k, v in clip_model.state_dict().items()
+        #     if k.startswith("visual.")
+        # }
+
+        # 加载到你自己的 self.clip
+        #self.clip.load_state_dict(vision_state_dict, strict=False) 
+        #vit_clip_state_dict = torch.load('checkpoints/ViT-L-14-336px.pth')
+        
+        #vit_clip_state_dict, _, _ = open_clip.create_model_and_transforms('ViT-L-14', pretrained='openai')
+        #torch.save(vit_clip_state_dict.state_dict(), 'checkpoints/ViT-L-14-336px.pth')
+        #vit_clip_state_dict = torch.load('checkpoints/ViT-L-14-336px.pt')
+        #all_keys = list(vit_clip_state_dict.keys())
+        #if 'pos_embed' in vit_clip_state_dict:
+         
+        
 
     def interpolate_pos_encoding(self, x, w, h):
         previous_dtype = x.dtype
@@ -250,11 +295,25 @@ class DinoVisionTransformer(BaseModule):
         B, _, h, w = x.shape
         if isinstance(x, list):
             return self.forward_features_list(x, masks)
-
+        IMG_MEAN = torch.tensor([v * 255 for v in [0.485, 0.456, 0.406]]).view(1, 3, 1, 1).cuda()
+        IMG_STD = torch.tensor([v * 255 for v in [0.229, 0.224, 0.225]]).view(1, 3, 1, 1).cuda()
+        original_x = x * IMG_STD + IMG_MEAN
+         
+        CLIP_IMG_MEAN = torch.tensor([ v*255 for v in [0.48145466, 0.4578275, 0.40821073]]).view(1, 3, 1, 1).cuda()
+        CLIP_IMG_STD = torch.tensor([ v*255 for v in [0.26862954, 0.26130258, 0.27577711]]).view(1, 3, 1, 1).cuda()
+        normalized_x = (original_x - CLIP_IMG_MEAN) / CLIP_IMG_STD  
+        clip_x = self.clip.prepare_tokens_with_masks(normalized_x)
+        
+        aux_loss = 0
         x = self.prepare_tokens_with_masks(x, masks)
         outs = []
         for idx, blk in enumerate(self.blocks):
             x = blk(x)
+            clip_x = self.clip.transformer.resblocks[idx](clip_x)
+            x_MoA,t_MoA,x_prompt,t_prompt,aux_MoA=self.blocks_MoA[idx](x,clip_x.permute(1,0,2)) 
+            x = x_MoA + t_MoA
+            aux_loss += aux_MoA
+            x = self.confuse_layer[idx](x, h // self.patch_size, w // self.patch_size)
             if idx in self.out_indices:
                 outs.append(
                     x[:, 1:, :]
@@ -262,7 +321,9 @@ class DinoVisionTransformer(BaseModule):
                     .reshape(B, -1, h // self.patch_size, w // self.patch_size)
                     .contiguous()
                 )
-        return outs
+                
+                
+        return outs, aux_loss
 
     def _get_intermediate_layers_not_chunked(self, x, n=1):
         x = self.prepare_tokens_with_masks(x)
@@ -327,18 +388,19 @@ class DinoVisionTransformer(BaseModule):
         return tuple(outputs)
 
     def forward(self, *args, **kwargs):
-        with torch.no_grad():
-            ret = self.forward_features(*args, **kwargs)
+        
+        ret, aux_loss = self.forward_features(*args, **kwargs)
         if isinstance(ret[0], torch.Tensor):
             ret[0] = F.interpolate(
                 ret[0], scale_factor=4, mode="bilinear", align_corners=False
-            )
+            ) #[8,1024,32,32] -> [8,1024,128,128]
             ret[1] = F.interpolate(
                 ret[1], scale_factor=2, mode="bilinear", align_corners=False
-            )
+            ) #[8,1024,32,32] -> [8, 1024, 64, 64]
+            # ret[2]: [8, 1024, 32, 32]
             ret[3] = F.interpolate(
                 ret[3], scale_factor=0.5, mode="bilinear", align_corners=False
-            )
+            ) #[8, 1024, 32, 32] -> [8, 1024, 16, 16]
         else:
             ret[0][0] = F.interpolate(
                 ret[0][0], scale_factor=4, mode="bilinear", align_corners=False
@@ -349,4 +411,4 @@ class DinoVisionTransformer(BaseModule):
             ret[0][3] = F.interpolate(
                 ret[0][3], scale_factor=0.5, mode="bilinear", align_corners=False
             )
-        return ret
+        return ret, aux_loss

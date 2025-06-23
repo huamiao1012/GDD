@@ -26,3 +26,4 @@ class FasterRCNN(TwoStageDetector):
             test_cfg=test_cfg,
             init_cfg=init_cfg,
             data_preprocessor=data_preprocessor)
+        

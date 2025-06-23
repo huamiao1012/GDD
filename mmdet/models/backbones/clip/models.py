@@ -8,10 +8,44 @@ from collections import OrderedDict
 from mmseg.models.backbones import ResNet
 from mmseg.models.builder import BACKBONES
 from timm.models.layers import drop_path, trunc_normal_
-
+from mmdet.models.backbones.MMOE import MMoE
 #from ..eva_clip.adapter_module import MVFuser
-from ..dino_v2 import DinoVisionTransformer
-    
+#from mmdet.models.backbones.dino_v2 import DinoVisionTransformer
+
+
+class ConvFusionLayer(nn.Module):
+    """
+    """
+
+    def __init__(
+        self,
+        dim=1024,
+        r = 32,
+      
+    ):
+        super().__init__()
+        self.dim = dim
+        kersize =3
+        self.conv1 = nn.Conv2d(dim,dim//4,(1, 1),bias=False,padding=0)
+        self.conv2 = nn.Conv2d(dim//4,dim//4,(kersize, kersize),bias=False,padding=1)
+        self.conv3 = nn.Conv2d(dim//4,dim,(1, 1),bias=False,padding=0)
+        
+    def forward(self, x,H,W):
+
+        feature = x[:, 1:, :]
+        cls_token = x[:, 0, :].unsqueeze(1)
+        B,L,N = feature.shape
+        feature = feature.permute(0,2,1).view(B,N,H,W)
+        #print(feature.shape)
+        feature = self.conv1(feature)
+        feature = self.conv2(feature)
+        feature = self.conv3(feature)
+        x = feature.view(B,N,H*W).permute(0,2,1)
+        x = torch.cat((cls_token, x), dim=1)
+        #x = self.LayerNorm(x)
+        return x
+
+
 class BiMixtureOfAdapters(nn.Module):
     """In timm it is implemented as
     self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
@@ -31,7 +65,7 @@ class BiMixtureOfAdapters(nn.Module):
         super().__init__()
         self.dim = dim
         self.dimReduction = nn.Linear(dim*2, dim//4, bias=False)
-        self.MoA = MMoE(dim//4, dim//4, 4,dim//32, noisy_gating=True, k=2,task_num=3)
+        self.MoA = MMoE(dim//4, dim//4, 4,dim//32, noisy_gating=True, k=2,task_num=1)
         
         #print()
         self.modal_shifts = [nn.Parameter(torch.zeros(dim)).cuda()  for i in range(2*task_num)]
@@ -47,7 +81,7 @@ class BiMixtureOfAdapters(nn.Module):
             nn.init.normal_(layer, std=.02)
         torch.nn.init.xavier_uniform_(self.dimReduction.weight)
        
-    def forward(self, x,t,task_index):
+    def forward(self, x,t,task_index=0):
         y = torch.cat([x,t],dim=-1)   #B N C
          # Fsq操作：经池化后输出b*c的矩阵
          # B C 1
@@ -261,15 +295,15 @@ class CLIPVisionTransformer(nn.Module):
             self.proj = nn.Parameter(scale * torch.randn(width, output_dim))      
 
         self.fpn_dim = width + 1024
-        self.fpn1 = nn.Sequential(
-                nn.ConvTranspose2d(self.fpn_dim, self.fpn_dim, kernel_size=2, stride=2),
-                nn.SyncBatchNorm(self.fpn_dim),
-                nn.GELU(),
-                nn.ConvTranspose2d(self.fpn_dim, self.fpn_dim, kernel_size=2, stride=2))
-        self.fpn2 = nn.Sequential(
-            nn.ConvTranspose2d(self.fpn_dim, self.fpn_dim, kernel_size=2, stride=2))
-        self.fpn3 = nn.Identity()
-        self.fpn4 = nn.MaxPool2d(kernel_size=2, stride=2)      
+        # self.fpn1 = nn.Sequential(
+        #         nn.ConvTranspose2d(self.fpn_dim, self.fpn_dim, kernel_size=2, stride=2),
+        #         nn.SyncBatchNorm(self.fpn_dim),
+        #         nn.GELU(),
+        #         nn.ConvTranspose2d(self.fpn_dim, self.fpn_dim, kernel_size=2, stride=2))
+        # self.fpn2 = nn.Sequential(
+        #     nn.ConvTranspose2d(self.fpn_dim, self.fpn_dim, kernel_size=2, stride=2))
+        # self.fpn3 = nn.Identity()
+        # self.fpn4 = nn.MaxPool2d(kernel_size=2, stride=2)      
         
         # DINOv2-L
         # self.dinov2 = DinoVisionTransformer(patch_size=16,
@@ -435,227 +469,227 @@ class CLIPVisionTransformer(nn.Module):
 
         return tuple(features)
 
-@BACKBONES.register_module()
-class CLIPTextEncoder(nn.Module):
+# @BACKBONES.register_module()
+# class CLIPTextEncoder(nn.Module):
 
-    def __init__(self, context_length=77,
-                 vocab_size=49408,
-                 transformer_width=512,
-                 transformer_heads=8,
-                 transformer_layers=12,
-                 embed_dim=1024,
-                 out_dim=256,
-                 pretrained=None, **kwargs):
-        super().__init__()
+#     def __init__(self, context_length=77,
+#                  vocab_size=49408,
+#                  transformer_width=512,
+#                  transformer_heads=8,
+#                  transformer_layers=12,
+#                  embed_dim=1024,
+#                  out_dim=256,
+#                  pretrained=None, **kwargs):
+#         super().__init__()
 
-        self.pretrained = pretrained
+#         self.pretrained = pretrained
 
-        self.context_length = context_length
+#         self.context_length = context_length
 
-        self.transformer = Transformer(
-            width=transformer_width,
-            layers=transformer_layers,
-            heads=transformer_heads,
-            attn_mask=self.build_attention_mask()
-        )
+#         self.transformer = Transformer(
+#             width=transformer_width,
+#             layers=transformer_layers,
+#             heads=transformer_heads,
+#             attn_mask=self.build_attention_mask()
+#         )
 
-        self.vocab_size = vocab_size
-        self.token_embedding = nn.Embedding(vocab_size, transformer_width)
-        self.positional_embedding = nn.Parameter(torch.empty(self.context_length, transformer_width))
-        self.ln_final = LayerNorm(transformer_width)
-        self.text_projection = nn.Parameter(torch.empty(transformer_width, embed_dim))
+#         self.vocab_size = vocab_size
+#         self.token_embedding = nn.Embedding(vocab_size, transformer_width)
+#         self.positional_embedding = nn.Parameter(torch.empty(self.context_length, transformer_width))
+#         self.ln_final = LayerNorm(transformer_width)
+#         self.text_projection = nn.Parameter(torch.empty(transformer_width, embed_dim))
 
-    def init_weights(self, pretrained=None):
-        pretrained = pretrained or self.pretrained
-        if isinstance(pretrained, str):
-            checkpoint = torch.jit.load(pretrained, map_location='cpu').float().state_dict()
+#     def init_weights(self, pretrained=None):
+#         pretrained = pretrained or self.pretrained
+#         if isinstance(pretrained, str):
+#             checkpoint = torch.jit.load(pretrained, map_location='cpu').float().state_dict()
 
-            state_dict = {}
+#             state_dict = {}
 
-            for k in checkpoint.keys():
-                if k.startswith('transformer.'):
-                    state_dict[k] = checkpoint[k]
+#             for k in checkpoint.keys():
+#                 if k.startswith('transformer.'):
+#                     state_dict[k] = checkpoint[k]
                 
-                if k == 'positional_embedding' or k == 'text_projection' or k.startswith('token_embedding') or k.startswith('ln_final'):
-                    if k == 'positional_embedding' and checkpoint[k].size(0) > self.context_length:
-                        checkpoint[k] = checkpoint[k][:self.context_length]
-                        print('positional_embedding is tuncated from 77 to', self.context_length)
-                    state_dict[k] = checkpoint[k]
+#                 if k == 'positional_embedding' or k == 'text_projection' or k.startswith('token_embedding') or k.startswith('ln_final'):
+#                     if k == 'positional_embedding' and checkpoint[k].size(0) > self.context_length:
+#                         checkpoint[k] = checkpoint[k][:self.context_length]
+#                         print('positional_embedding is tuncated from 77 to', self.context_length)
+#                     state_dict[k] = checkpoint[k]
              
-            u, w = self.load_state_dict(state_dict, False)
-            print(u, w, 'are misaligned params in text encoder')
+#             u, w = self.load_state_dict(state_dict, False)
+#             print(u, w, 'are misaligned params in text encoder')
 
 
-    def build_attention_mask(self):
-        # lazily create causal attention mask, with full attention between the vision tokens
-        # pytorch uses additive attention mask; fill with -inf
-        mask = torch.empty(self.context_length, self.context_length)
-        mask.fill_(float("-inf"))
-        mask.triu_(1)  # zero out the lower diagonal
-        return mask
+#     def build_attention_mask(self):
+#         # lazily create causal attention mask, with full attention between the vision tokens
+#         # pytorch uses additive attention mask; fill with -inf
+#         mask = torch.empty(self.context_length, self.context_length)
+#         mask.fill_(float("-inf"))
+#         mask.triu_(1)  # zero out the lower diagonal
+#         return mask
 
-    def forward(self, text):
-        x = self.token_embedding(text)  # [batch_size, n_ctx, d_model]
-        x = x + self.positional_embedding
-        x = x.permute(1, 0, 2)  # NLD -> LND
-        x = self.transformer(x)
-        x = x.permute(1, 0, 2)  # LND -> NLD
-        x = self.ln_final(x)
-        x = x[torch.arange(x.shape[0]), text.argmax(dim=-1)] @ self.text_projection
-        # x = self.out_proj(x)
-        return x
+#     def forward(self, text):
+#         x = self.token_embedding(text)  # [batch_size, n_ctx, d_model]
+#         x = x + self.positional_embedding
+#         x = x.permute(1, 0, 2)  # NLD -> LND
+#         x = self.transformer(x)
+#         x = x.permute(1, 0, 2)  # LND -> NLD
+#         x = self.ln_final(x)
+#         x = x[torch.arange(x.shape[0]), text.argmax(dim=-1)] @ self.text_projection
+#         # x = self.out_proj(x)
+#         return x
 
-@BACKBONES.register_module()
-class CLIPTextContextEncoder(nn.Module):
-    def __init__(self, context_length=22,
-                 vocab_size=49408,
-                 transformer_width=512,
-                 transformer_heads=8,
-                 transformer_layers=12,
-                 embed_dim=1024,
-                 out_dim=256,
-                 pretrained=None, **kwargs):
-        super().__init__()
+# @BACKBONES.register_module()
+# class CLIPTextContextEncoder(nn.Module):
+#     def __init__(self, context_length=22,
+#                  vocab_size=49408,
+#                  transformer_width=512,
+#                  transformer_heads=8,
+#                  transformer_layers=12,
+#                  embed_dim=1024,
+#                  out_dim=256,
+#                  pretrained=None, **kwargs):
+#         super().__init__()
 
-        self.pretrained = pretrained
+#         self.pretrained = pretrained
 
-        self.context_length = context_length
+#         self.context_length = context_length
 
-        self.transformer = Transformer(
-            width=transformer_width,
-            layers=transformer_layers,
-            heads=transformer_heads,
-            attn_mask=self.build_attention_mask()
-        )
+#         self.transformer = Transformer(
+#             width=transformer_width,
+#             layers=transformer_layers,
+#             heads=transformer_heads,
+#             attn_mask=self.build_attention_mask()
+#         )
 
-        self.embed_dim = embed_dim
+#         self.embed_dim = embed_dim
 
-        self.vocab_size = vocab_size
-        self.token_embedding = nn.Embedding(vocab_size, transformer_width)
-        self.positional_embedding = nn.Parameter(torch.empty(self.context_length, transformer_width))
-        self.ln_final = LayerNorm(transformer_width)
-        self.text_projection = nn.Parameter(torch.empty(transformer_width, embed_dim))
+#         self.vocab_size = vocab_size
+#         self.token_embedding = nn.Embedding(vocab_size, transformer_width)
+#         self.positional_embedding = nn.Parameter(torch.empty(self.context_length, transformer_width))
+#         self.ln_final = LayerNorm(transformer_width)
+#         self.text_projection = nn.Parameter(torch.empty(transformer_width, embed_dim))
 
-    def init_weights(self, pretrained=None):
-        pretrained = pretrained or self.pretrained
-        print("text_encoder:", pretrained)
-        if isinstance(pretrained, str):
-            checkpoint = torch.jit.load(pretrained, map_location='cpu').float().state_dict()
+#     def init_weights(self, pretrained=None):
+#         pretrained = pretrained or self.pretrained
+#         print("text_encoder:", pretrained)
+#         if isinstance(pretrained, str):
+#             checkpoint = torch.jit.load(pretrained, map_location='cpu').float().state_dict()
 
-            state_dict = {}
+#             state_dict = {}
 
-            for k in checkpoint.keys():
-                if k.startswith('transformer.'):
-                    state_dict[k] = checkpoint[k]
+#             for k in checkpoint.keys():
+#                 if k.startswith('transformer.'):
+#                     state_dict[k] = checkpoint[k]
                 
-                if k == 'positional_embedding' or k == 'text_projection' or k.startswith('token_embedding') or k.startswith('ln_final'):
-                    if k == 'positional_embedding' and checkpoint[k].size(0) > self.context_length:
-                        checkpoint[k] = checkpoint[k][:self.context_length]
-                        print('positional_embedding is tuncated from 77 to', self.context_length)
-                    state_dict[k] = checkpoint[k]
+#                 if k == 'positional_embedding' or k == 'text_projection' or k.startswith('token_embedding') or k.startswith('ln_final'):
+#                     if k == 'positional_embedding' and checkpoint[k].size(0) > self.context_length:
+#                         checkpoint[k] = checkpoint[k][:self.context_length]
+#                         print('positional_embedding is tuncated from 77 to', self.context_length)
+#                     state_dict[k] = checkpoint[k]
              
-            u, w = self.load_state_dict(state_dict, False)
-            print(u, w, 'are misaligned params in text encoder')
+#             u, w = self.load_state_dict(state_dict, False)
+#             print(u, w, 'are misaligned params in text encoder')
 
 
-    def build_attention_mask(self):
-        # lazily create causal attention mask, with full attention between the vision tokens
-        # pytorch uses additive attention mask; fill with -inf
-        mask = torch.empty(self.context_length, self.context_length)
-        mask.fill_(float("-inf"))
-        mask.triu_(1)  # zero out the lower diagonal
-        return mask
+#     def build_attention_mask(self):
+#         # lazily create causal attention mask, with full attention between the vision tokens
+#         # pytorch uses additive attention mask; fill with -inf
+#         mask = torch.empty(self.context_length, self.context_length)
+#         mask.fill_(float("-inf"))
+#         mask.triu_(1)  # zero out the lower diagonal
+#         return mask
 
-    def forward(self, text, context=None):
-        if context is not None:
-            x_text = self.token_embedding(text)  # n_clas, n_text, C
-            K, N1, C = x_text.shape
-            if len(context.shape) == 3:
-                B, N2, C = context.shape
+#     def forward(self, text, context=None):
+#         if context is not None:
+#             x_text = self.token_embedding(text)  # n_clas, n_text, C
+#             K, N1, C = x_text.shape
+#             if len(context.shape) == 3:
+#                 B, N2, C = context.shape
 
-                eos_indx = text.argmax(dim=-1) + N2
-                eos_indx = eos_indx.reshape(1, K).expand(B, K).reshape(-1)
+#                 eos_indx = text.argmax(dim=-1) + N2
+#                 eos_indx = eos_indx.reshape(1, K).expand(B, K).reshape(-1)
 
-                x_text = x_text.reshape(1, K, N1, C).expand(B, K, N1, C)
-                context = context.reshape(B, 1, N2, C).expand(B, K, N2, C)
+#                 x_text = x_text.reshape(1, K, N1, C).expand(B, K, N1, C)
+#                 context = context.reshape(B, 1, N2, C).expand(B, K, N2, C)
             
-            elif len(context.shape) == 4:
-                B, K, N2, C = context.shape
+#             elif len(context.shape) == 4:
+#                 B, K, N2, C = context.shape
 
-                eos_indx = text.argmax(dim=-1) + N2
-                eos_indx = eos_indx.reshape(1, K).expand(B, K).reshape(-1)
+#                 eos_indx = text.argmax(dim=-1) + N2
+#                 eos_indx = eos_indx.reshape(1, K).expand(B, K).reshape(-1)
 
-                x_text = x_text.reshape(1, K, N1, C).expand(B, K, N1, C)
-            x = torch.cat([x_text[:,:,0:1], context, x_text[:, :, 1:]], dim=2).reshape(B*K, N1+N2, C)
-            x = x + self.positional_embedding
-            x = x.permute(1, 0, 2)  # NLD -> LND
-            x = self.transformer(x)
-            x = x.permute(1, 0, 2)  # LND -> NLD
-            x = self.ln_final(x)
-            x = x[torch.arange(x.shape[0]), eos_indx] @ self.text_projection
-            x = x.reshape(B, K, self.embed_dim) # 1 19 512
-            return x
+#                 x_text = x_text.reshape(1, K, N1, C).expand(B, K, N1, C)
+#             x = torch.cat([x_text[:,:,0:1], context, x_text[:, :, 1:]], dim=2).reshape(B*K, N1+N2, C)
+#             x = x + self.positional_embedding
+#             x = x.permute(1, 0, 2)  # NLD -> LND
+#             x = self.transformer(x)
+#             x = x.permute(1, 0, 2)  # LND -> NLD
+#             x = self.ln_final(x)
+#             x = x[torch.arange(x.shape[0]), eos_indx] @ self.text_projection
+#             x = x.reshape(B, K, self.embed_dim) # 1 19 512
+#             return x
         
-        else:
-            x = self.token_embedding(text)  # [batch_size, n_ctx, d_model]
-            x = x + self.positional_embedding
-            x = x.permute(1, 0, 2)  # NLD -> LND
-            x = self.transformer(x)
-            x = x.permute(1, 0, 2)  # LND -> NLD
-            x = self.ln_final(x)
-            x = x[torch.arange(x.shape[0]), text.argmax(dim=-1)] @ self.text_projection
-            # x = self.out_proj(x)
-            return x
+#         else:
+#             x = self.token_embedding(text)  # [batch_size, n_ctx, d_model]
+#             x = x + self.positional_embedding
+#             x = x.permute(1, 0, 2)  # NLD -> LND
+#             x = self.transformer(x)
+#             x = x.permute(1, 0, 2)  # LND -> NLD
+#             x = self.ln_final(x)
+#             x = x[torch.arange(x.shape[0]), text.argmax(dim=-1)] @ self.text_projection
+#             # x = self.out_proj(x)
+#             return x
 
-@BACKBONES.register_module()
-class ContextDecoder(nn.Module):
-    def __init__(self,
-                 transformer_width=256,
-                 transformer_heads=4,
-                 transformer_layers=6,
-                 visual_dim=1024,
-                 dropout=0.1,
-                 **kwargs):
-        super().__init__()
+# @BACKBONES.register_module()
+# class ContextDecoder(nn.Module):
+#     def __init__(self,
+#                  transformer_width=256,
+#                  transformer_heads=4,
+#                  transformer_layers=6,
+#                  visual_dim=1024,
+#                  dropout=0.1,
+#                  **kwargs):
+#         super().__init__()
 
-        self.memory_proj = nn.Sequential(
-            nn.LayerNorm(visual_dim),
-            nn.Linear(visual_dim, transformer_width),
-            nn.LayerNorm(transformer_width),
-        )
+#         self.memory_proj = nn.Sequential(
+#             nn.LayerNorm(visual_dim),
+#             nn.Linear(visual_dim, transformer_width),
+#             nn.LayerNorm(transformer_width),
+#         )
 
-        self.text_proj = nn.Sequential(
-            nn.LayerNorm(visual_dim),
-            nn.Linear(visual_dim, transformer_width),
-        )
+#         self.text_proj = nn.Sequential(
+#             nn.LayerNorm(visual_dim),
+#             nn.Linear(visual_dim, transformer_width),
+#         )
 
-        self.decoder = nn.ModuleList([
-                    MTEnhancer(transformer_width, transformer_heads, dropout) for _ in range(transformer_layers)
-                ])
+#         self.decoder = nn.ModuleList([
+#                     MTEnhancer(transformer_width, transformer_heads, dropout) for _ in range(transformer_layers)
+#                 ])
         
-        self.out_proj = nn.Sequential(
-            nn.LayerNorm(transformer_width),
-            nn.Linear(transformer_width, visual_dim)
-        )
+#         self.out_proj = nn.Sequential(
+#             nn.LayerNorm(transformer_width),
+#             nn.Linear(transformer_width, visual_dim)
+#         )
 
-        self.apply(self._init_weights)
+#         self.apply(self._init_weights)
 
-    def _init_weights(self, m):
-        if isinstance(m, nn.Linear):
-            trunc_normal_(m.weight, std=.02)
-            if isinstance(m, nn.Linear) and m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-        elif isinstance(m, nn.LayerNorm):
-            nn.init.constant_(m.bias, 0)
-            nn.init.constant_(m.weight, 1.0)
+#     def _init_weights(self, m):
+#         if isinstance(m, nn.Linear):
+#             trunc_normal_(m.weight, std=.02)
+#             if isinstance(m, nn.Linear) and m.bias is not None:
+#                 nn.init.constant_(m.bias, 0)
+#         elif isinstance(m, nn.LayerNorm):
+#             nn.init.constant_(m.bias, 0)
+#             nn.init.constant_(m.weight, 1.0)
 
     
-    def forward(self, text, visual):
-        B, N, C = visual.shape
-        visual = self.memory_proj(visual)
-        x = self.text_proj(text)
+#     def forward(self, text, visual):
+#         B, N, C = visual.shape
+#         visual = self.memory_proj(visual)
+#         x = self.text_proj(text)
 
-        for layer in self.decoder:
-            x = layer(x, visual)
+#         for layer in self.decoder:
+#             x = layer(x, visual)
         
-        return self.out_proj(x)
+#         return self.out_proj(x)

@@ -21,11 +21,13 @@ from .dift_encoder import DIFT
 from .dift_3_encoder import DIFT_3
 from .reins_dinov2 import ReinsDinoVisionTransformer
 from .dino_v2 import DinoVisionTransformer
+from .clip.models import CLIPVisionTransformer
 
 __all__ = [
     'RegNet', 'ResNet', 'ResNetV1d', 'ResNeXt', 'SSDVGG', 'HRNet',
     'MobileNetV2', 'Res2Net', 'HourglassNet', 'DetectoRS_ResNet',
     'DetectoRS_ResNeXt', 'Darknet', 'ResNeSt', 'TridentResNet', 'CSPDarknet',
     'SwinTransformer', 'PyramidVisionTransformer', 'ReinsDinoVisionTransformer','DinoVisionTransformer',
-    'PyramidVisionTransformerV2', 'EfficientNet', 'CSPNeXt', 'DIFT', 'DIFT_3'
+    'PyramidVisionTransformerV2', 'EfficientNet', 'CSPNeXt', 'DIFT', 'DIFT_3', 
+    'CLIPVisionTransformer'
 ]
