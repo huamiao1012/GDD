@@ -113,10 +113,10 @@ class TwoStageDetector(BaseDetector):
             tuple[Tensor]: Multi-level features that may have
             different resolutions.
         """
-        x = self.backbone(batch_inputs)
+        x, aux_loss = self.backbone(batch_inputs)
         if self.with_neck:
             x = self.neck(x)
-        return x
+        return x, aux_loss
 
     def _forward(self, batch_inputs: Tensor,
                  batch_data_samples: SampleList) -> tuple:
@@ -174,7 +174,7 @@ class TwoStageDetector(BaseDetector):
         x, aux_loss = self.extract_feat(batch_inputs)
 
         losses = dict()
-
+        losses.update({'loss_moe':aux_loss})
         # RPN forward and loss
         if self.with_rpn:
             proposal_cfg = self.train_cfg.get('rpn_proposal',
