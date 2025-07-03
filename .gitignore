@@ -5,3 +5,5 @@ __pycache__/
 data/
 data
 .dist_test
+**.pt
+checkpoints/e
